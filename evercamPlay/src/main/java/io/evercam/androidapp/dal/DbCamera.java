@@ -47,6 +47,9 @@ public class DbCamera extends DatabaseMaster
     //Thumbnail URL
     private final String KEY_THUMBNAIL_URL = "thumbnailUrl";
 
+    private final String KEY_DISCOVERABLE = "isDiscoverable";
+    private final String KEY_PUBLIC = "isPublic";
+
     public DbCamera(Context context)
     {
         super(context);
@@ -69,7 +72,8 @@ public class DbCamera extends DatabaseMaster
                 "NULL" + "," + KEY_INTERNAL_RTSP + " INTEGER NULL" + "," +
                 "" + KEY_EXTERNAL_RTSP + " INTEGER NULL" + "," + KEY_THUMBNAIL_URL + " TEXT NULL" +
                 "," + KEY_REAL_OWNER + " TEXT NULL" + "," + KEY_CAN_EDIT + " TEXT NULL" +
-                "," + KEY_CAN_DELETE + " TEXT NULL" + "," + KEY_RIGHTS + " TEXT NULL" + ")";
+                "," + KEY_CAN_DELETE + " TEXT NULL" + "," + KEY_RIGHTS + " TEXT NULL" +
+                "," + KEY_DISCOVERABLE + " INTEGER NULL" + "," + KEY_PUBLIC + " INTEGER NULL" + ")";
         db.execSQL(CREATE_TABLE_Cameras);
     }
 
@@ -106,7 +110,8 @@ public class DbCamera extends DatabaseMaster
                 KEY_EXTERNAL_RTSP_URL, KEY_INTERNAL_RTSP_URL, KEY_STATUS, KEY_HAS_CREDENTIAL,
                 KEY_INTERNAL_HOST, KEY_EXTERNAL_HOST, KEY_INTERNAL_HTTP, KEY_EXTERNAL_HTTP,
                 KEY_INTERNAL_RTSP, KEY_EXTERNAL_RTSP, KEY_THUMBNAIL_URL, KEY_REAL_OWNER, KEY_CAN_EDIT,
-                KEY_CAN_DELETE, KEY_RIGHTS}, KEY_ID + "=?", new String[]{String.valueOf(id)}, null, null,
+                KEY_CAN_DELETE, KEY_RIGHTS, KEY_DISCOVERABLE, KEY_PUBLIC},
+                KEY_ID + "=?", new String[]{String.valueOf(id)}, null, null,
                 null, null);
         if(cursor != null)
         {
@@ -211,6 +216,8 @@ public class DbCamera extends DatabaseMaster
         values.put(KEY_CAN_EDIT, evercamCamera.getCanEditInt());
         values.put(KEY_CAN_DELETE, evercamCamera.getCanDeleteInt());
         values.put(KEY_RIGHTS, evercamCamera.getRights());
+        values.put(KEY_DISCOVERABLE, evercamCamera.getDiscoverableInt());
+        values.put(KEY_PUBLIC, evercamCamera.getPublicInt());
 
         return values;
     }
@@ -270,6 +277,8 @@ public class DbCamera extends DatabaseMaster
         evercamCamera.setCanEdit(cursor.getInt(24) == 1);
         evercamCamera.setCanDelete(cursor.getInt(25) == 1);
         evercamCamera.setRights(cursor.getString(26));
+        evercamCamera.setIsDiscoverable(cursor.getInt(27) == 1);
+        evercamCamera.setIsPublic(cursor.getInt(28) == 1);
 
         return evercamCamera;
     }

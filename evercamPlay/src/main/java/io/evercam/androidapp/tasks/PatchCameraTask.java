@@ -7,7 +7,9 @@ import android.util.Log;
 import io.evercam.Camera;
 import io.evercam.CameraDetail;
 import io.evercam.EvercamException;
+import io.evercam.androidapp.AddEditCameraActivity;
 import io.evercam.androidapp.R;
+import io.evercam.androidapp.sharing.SharingActivity;
 import io.evercam.androidapp.custom.CustomProgressDialog;
 import io.evercam.androidapp.custom.CustomToast;
 import io.evercam.androidapp.dal.DbCamera;
@@ -41,7 +43,6 @@ public class PatchCameraTask extends AsyncTask<Void, Void, EvercamCamera>
     @Override
     protected EvercamCamera doInBackground(Void... params)
     {
-        Log.d(TAG, cameraDetail.toString());
         return patchCamera(cameraDetail);
     }
 
@@ -53,14 +54,21 @@ public class PatchCameraTask extends AsyncTask<Void, Void, EvercamCamera>
         {
             CustomToast.showInBottom(activity, R.string.patch_success);
 
-            /**
-             * Successfully updated camera, update saved camera, show camera
-             * live view, and finish edit camera activity
-             */
-            VideoActivity.startingCameraID = evercamCamera.getCameraId();
-            VideoActivity.evercamCamera = evercamCamera;
-            activity.setResult(Constants.RESULT_TRUE);
-            activity.finish();
+            if(activity instanceof AddEditCameraActivity)
+            {
+                /**
+                 * Successfully updated camera, update saved camera, show camera
+                 * live view, and finish edit camera activity
+                 */
+                VideoActivity.startingCameraID = evercamCamera.getCameraId();
+                VideoActivity.evercamCamera = evercamCamera;
+                activity.setResult(Constants.RESULT_TRUE);
+                activity.finish();
+            }
+            else if(activity instanceof SharingActivity)
+            {
+
+            }
         }
         else
         {
@@ -73,30 +81,21 @@ public class PatchCameraTask extends AsyncTask<Void, Void, EvercamCamera>
         try
         {
             Camera patchedCamera = Camera.patch(detail);
-            if(patchedCamera != null)
-            {
-                Camera camera = patchedCamera;
-                // Camera camera = Camera.getById(detail.getId(), false);
-                EvercamCamera evercamCamera = new EvercamCamera().convertFromEvercam(camera);
-                DbCamera dbCamera = new DbCamera(activity);
-                dbCamera.deleteCamera(evercamCamera.getCameraId());
-                for(int index = 0; index < AppData.evercamCameraList.size(); index++)
-                {
-                    if(AppData.evercamCameraList.get(index).getCameraId().equals(camera.getId()))
-                    {
-                        AppData.evercamCameraList.remove(index);
-                    }
-                }
-                dbCamera.addCamera(evercamCamera);
-                AppData.evercamCameraList.add(evercamCamera);
 
-                return evercamCamera;
-            }
-            else
+            EvercamCamera evercamCamera = new EvercamCamera().convertFromEvercam(patchedCamera);
+            DbCamera dbCamera = new DbCamera(activity);
+            dbCamera.deleteCamera(evercamCamera.getCameraId());
+            for(int index = 0; index < AppData.evercamCameraList.size(); index++)
             {
-                Log.e(TAG, "Returned patch camera is null");
-                return null;
+                if(AppData.evercamCameraList.get(index).getCameraId().equals(patchedCamera.getId()))
+                {
+                    AppData.evercamCameraList.remove(index);
+                }
             }
+            dbCamera.addCamera(evercamCamera);
+            AppData.evercamCameraList.add(evercamCamera);
+
+            return evercamCamera;
         }
         catch(EvercamException e)
         {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sharing_status_specific_user">Only specific users</string>
+    <string name="sharing_status_link">Anyone with the link</string>
+    <string name="sharing_status_public">Public on the web</string>
+
+    <string name="sharing_status_detail_specific_user">Is Public: [No] &amp; Discoverable: [No]</string>
+    <string name="sharing_status_detail_link">Is Public: [Yes] &amp; Discoverable: [No]</string>
+    <string name="sharing_status_detail_public">Is Public: [Yes] &amp; Discoverable: [Yes]</string>
+
+</resources>

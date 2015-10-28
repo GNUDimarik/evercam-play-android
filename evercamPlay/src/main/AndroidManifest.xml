@@ -181,6 +181,10 @@
             android:name=".photoview.ViewPagerActivity"
             android:label="@string/title_saved_images">
         </activity>
+        <activity
+            android:name=".sharing.SharingActivity"
+            android:label="@string/title_sharing">
+        </activity>
     </application>
 
 </manifest>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginLeft="10dp"
+    android:layout_marginRight="10dp"
+    android:paddingLeft="10dp"
+    android:paddingRight="10dp"
+    android:paddingTop="20dp"
+    android:paddingBottom="20dp">
+
+    <ImageView
+        android:id="@+id/share_status_icon_image_view"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:layout_centerVertical="true"
+        android:layout_marginRight="20dp"
+        android:padding="8sp"
+        android:src="@drawable/ic_users"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toRightOf="@+id/share_status_icon_image_view"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/sharing_status_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:text="@string/sharing_status_specific_user"
+            android:textSize="16sp"/>
+
+        <TextView
+            android:id="@+id/sharing_status_detail_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sharing_status_detail_specific_user"/>
+    </LinearLayout>
+
+</RelativeLayout>

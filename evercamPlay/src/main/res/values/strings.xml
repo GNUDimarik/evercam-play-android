@@ -59,6 +59,7 @@
     <string name="forget_password_url">https://dash.evercam.io/v1/users/password-reset</string>
     <string name="title_activity_recording_web">Cloud Recordings</string>
     <string name="title_activity_about_web">About Evercam</string>
+    <string name="title_sharing">Who has access</string>
 
     <!-- Menu -->
     <string name="menu_settings">Settings</string>

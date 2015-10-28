@@ -16,14 +16,18 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ListView;
 
 import io.evercam.androidapp.CamerasActivity;
 import io.evercam.androidapp.R;
+import io.evercam.androidapp.sharing.SharingActivity;
+import io.evercam.androidapp.sharing.SharingStatus;
 import io.evercam.androidapp.tasks.CreatePresetTask;
 import io.evercam.androidapp.video.VideoActivity;
 
 public class CustomedDialog
 {
+    public final static String TAG = "CustomedDialog";
     /**
      * Helper method to show unexpected error dialog.
      */
@@ -92,8 +96,8 @@ public class CustomedDialog
     public static AlertDialog getCanNotPlayDialog(final Activity activity,
                                                   DialogInterface.OnClickListener positiveListener)
     {
-        return getStandardStyledDialog(activity, R.string.msg_unable_to_play,
-                R.string.msg_please_check_camera, positiveListener, null, R.string.ok, 0);
+        return getStandardStyledDialog(activity, R.string.msg_unable_to_play, R.string
+                .msg_please_check_camera, positiveListener, null, R.string.ok, 0);
     }
 
     /**
@@ -388,5 +392,32 @@ public class CustomedDialog
         });
         dialogBuilder.setNegativeButton(R.string.cancel, null);
         return dialogBuilder.create();
+    }
+
+    public static AlertDialog getShareStatusDialog(final SharingActivity.SharingListFragment fragment)
+    {
+        final Activity activity = fragment.getActivity();
+        final CharSequence[] shareStatusItems = {activity.getString(R.string.sharing_status_public),
+                                                activity.getString(R.string.sharing_status_link),
+                                                activity.getString(R.string.sharing_status_specific_user)};
+        AlertDialog alertDialog = new AlertDialog.Builder(activity)
+                .setSingleChoiceItems(shareStatusItems, 0, null)
+                .setPositiveButton(R.string.save, new DialogInterface.OnClickListener()
+                {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which)
+                    {
+                        ListView listView = ((AlertDialog)dialog).getListView();
+                        Object checkedItem = listView.getAdapter().getItem(listView
+                                .getCheckedItemPosition());
+
+                        SharingStatus status = new SharingStatus(checkedItem.toString(),
+                                activity);
+
+                        fragment.patchSharingStatusAndUpdateUi(status);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null).create();
+        return  alertDialog;
     }
 }

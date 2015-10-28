@@ -64,6 +64,7 @@ import io.evercam.androidapp.FeedbackActivity;
 import io.evercam.androidapp.MainActivity;
 import io.evercam.androidapp.ParentAppCompatActivity;
 import io.evercam.androidapp.R;
+import io.evercam.androidapp.sharing.SharingActivity;
 import io.evercam.androidapp.ViewCameraActivity;
 import io.evercam.androidapp.authentication.EvercamAccount;
 import io.evercam.androidapp.custom.CameraListAdapter;
@@ -604,6 +605,10 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
             else if(itemId == android.R.id.home)
             {
                 navigateBackToCameraList();
+            }
+            else if(itemId == R.id.video_menu_share)
+            {
+                startActivity(new Intent(VideoActivity.this, SharingActivity.class));
             }
             else if(itemId == R.id.video_menu_feedback)
             {
@@ -1779,10 +1784,6 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
                 if(!evercamCamera.isOffline())
                 {
                     onlineCameraList.add(evercamCamera);
-                }
-                else
-                {
-                    Log.e(TAG, evercamCamera.toString());
                 }
             }
 

@@ -15,8 +15,9 @@ public class DatabaseMaster extends SQLiteOpenHelper
     // Version 8: Removed database user table
     // Version 9: Add thumbnail URL in camera object
     // Version 10: Added rights string in camera object
-    private static final String TAG = "evercamplay-DatabaseMaster";
-    private static final int DATABASE_VERSION = 10;
+    // Version 11: Added public & discoverable in camera object
+    private static final String TAG = "DatabaseMaster";
+    private static final int DATABASE_VERSION = 11;
     private static final String DATABASE_NAME = "evercamdata";
     private Context context = null;
 

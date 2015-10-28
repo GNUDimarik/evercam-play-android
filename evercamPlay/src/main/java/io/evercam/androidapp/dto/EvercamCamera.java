@@ -49,6 +49,9 @@ public class EvercamCamera
     private int externalHttp = 0;
     private int externalRtsp = 0;
 
+    private boolean isPublic;
+    private boolean isDiscoverable;
+
     public EvercamCamera()
     {
 
@@ -98,6 +101,9 @@ public class EvercamCamera
             externalHttp = camera.getExternalHttpPort();
             externalRtsp = camera.getExternalRtspPort();
             thumbnailUrl = camera.getThumbnailUrl();
+
+            isDiscoverable = camera.isDiscoverable();
+            isPublic = camera.isPublic();
         }
         catch(EvercamException e)
         {
@@ -489,6 +495,37 @@ public class EvercamCamera
         return !getModel().isEmpty();
     }
 
+
+    public boolean isDiscoverable()
+    {
+        return isDiscoverable;
+    }
+
+    public void setIsDiscoverable(boolean isDiscoverable)
+    {
+        this.isDiscoverable = isDiscoverable;
+    }
+
+    public int getDiscoverableInt()
+    {
+        return isDiscoverable() ? 1 : 0;
+    }
+
+    public boolean isPublic()
+    {
+        return isPublic;
+    }
+
+    public void setIsPublic(boolean isPublic)
+    {
+        this.isPublic = isPublic;
+    }
+
+    public  int getPublicInt()
+    {
+        return isPublic ? 1 : 0;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -506,7 +543,8 @@ public class EvercamCamera
                 .externalHost) && internalHttp == other.internalHttp && externalHttp == other
                 .externalHttp && internalRtsp == other.internalRtsp && externalRtsp == other
                 .externalRtsp && realOwner.equals(other.realOwner) && canEdit == other.canEdit &&
-                canDelete == other.canDelete && status == other.status && rights == other.rights)
+                canDelete == other.canDelete && status == other.status && rights == other.rights &&
+                isPublic == other.isPublic && isDiscoverable == other.isDiscoverable)
         {
             return true;
         }
