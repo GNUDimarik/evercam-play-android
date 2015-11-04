@@ -1,9 +1,6 @@
 #include "mediaplayer.h"
 #include <string>
 #include <algorithm>
-#include <sys/time.h>   /* for setitimer */
-#include <unistd.h>		/* for pause */
-#include <signal.h>		/* for signal */
 #include <gst/video/video.h>
 #include <pthread.h>
 #include "debug.h"
@@ -207,6 +204,7 @@ void MediaPlayer::initialize(const EventLoop& loop) throw (std::runtime_error)
         LOGD("res %d ctx %p pipeline %p", res, loop.msp_main_ctx.get(), pipeline);
         g_source_unref (bus_source);
         g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) handle_bus_error, const_cast<MediaPlayer*> (this));
+        g_signal_connect (G_OBJECT (bus), "message::application", (GCallback) handle_bus_snapshot, const_cast<MediaPlayer*> (this));
         gst_object_unref (bus);
 
         g_signal_connect (pipeline, "source-setup", G_CALLBACK (handle_source_setup), const_cast<MediaPlayer*> (this));
@@ -232,6 +230,12 @@ void MediaPlayer::handle_bus_error(GstBus *, GstMessage *message, MediaPlayer *s
         self->mfn_stream_failed_handler();
 
     self->m_target_state == GST_STATE_NULL;
+}
+
+void MediaPlayer::handle_bus_snapshot(GstBus *,  GstMessage *message, MediaPlayer *self)
+{
+    LOGD("Snapshot event");
+    self->requestSample(self->m_snapshot_format);
 }
 
 void MediaPlayer::handle_source_setup(GstElement *, GstElement *src, MediaPlayer *self)
@@ -268,6 +272,8 @@ void MediaPlayer::process_converted_sample(GstSample *sample, GError *err, Conve
             gst_buffer_map (buf, &info, GST_MAP_READ);
             data->player->m_sample_ready_handler(info.data, info.size);
             gst_buffer_unmap (buf, &info);
+            gst_sample_unref(sample);
+            data->player->msp_last_sample.reset();
         }
     }
     else {
@@ -311,6 +317,12 @@ GstPadProbeReturn MediaPlayer::handle_video_pad_data(GstPad *pad, GstPadProbeInf
     GstSample *sample = gst_sample_new(buffer, caps, NULL, NULL);
     self->msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
     gst_caps_unref(caps);
+    GstMessage *message = gst_message_new_application(GST_OBJECT(self->msp_pipeline.get()),
+                                                      gst_structure_new("snapshot", NULL));
+    gst_element_post_message(self->msp_pipeline.get(), message);
+    /*GstBus *bus = gst_element_get_bus (self->msp_pipeline.get());
+    gst_bus_post(bus, message);
+    gst_object_unref(bus);*/
     return GST_PAD_PROBE_REMOVE;
 }
 

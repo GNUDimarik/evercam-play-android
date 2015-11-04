@@ -8,8 +8,6 @@
 #include <string>
 #include <android/native_window.h>
 
-#define EVERCAM_SNAPSHOT_VIA_PAD_PROBE
-
 namespace evercam {
 
 class EventLoop;
@@ -48,6 +46,7 @@ public:
 private:
     void initialize(const EventLoop& loop) throw (std::runtime_error);
     static void handle_bus_error(GstBus *,  GstMessage *message, MediaPlayer *self);
+    static void handle_bus_snapshot(GstBus *,  GstMessage *message, MediaPlayer *self);
     static void handle_source_setup(GstElement *, GstElement *src, MediaPlayer *self);
     static void handle_video_changed(GstElement *playbin,  MediaPlayer *self);
     static void process_converted_sample(GstSample *sample, GError *err, ConvertSampleContext *data);
