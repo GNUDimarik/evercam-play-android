@@ -31,22 +31,27 @@ void MediaPlayer::play()
 {
     GstState currentTarget = m_target_state;
     m_target_state = GST_STATE_PLAYING;
-    gst_element_set_state(msp_pipeline.get(), m_target_state);
     msp_last_sample.reset();
 
-    if (currentTarget == GST_STATE_PAUSED)
-        mfn_stream_sucess_handler();
+    if (currentTarget == GST_STATE_PAUSED) {
+        // Don't do this since it doesn't work with gstreamer 1.6.1
+        //mfn_stream_sucess_handler();
+        gst_element_set_state(msp_pipeline.get(), GST_STATE_NULL);
+        gst_element_set_state(msp_pipeline.get(), GST_STATE_READY);
+    } else {
+        gst_element_set_state(msp_pipeline.get(), m_target_state);
+    }
 }
 
 void MediaPlayer::pause()
 {
     m_target_state = GST_STATE_PAUSED;
-
-    GstSample *sample;
+    // Don't do this since it doesn't work with gstreamer 1.6.1
+    /*GstSample *sample;
     g_object_get(msp_pipeline.get(), "sample", &sample, NULL);
 
     if (sample)
-        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
+        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);*/
 
     gst_element_set_state(msp_pipeline.get(), m_target_state);
 }
@@ -205,6 +210,7 @@ void MediaPlayer::initialize(const EventLoop& loop) throw (std::runtime_error)
         g_source_unref (bus_source);
         g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) handle_bus_error, const_cast<MediaPlayer*> (this));
         g_signal_connect (G_OBJECT (bus), "message::application", (GCallback) handle_bus_snapshot, const_cast<MediaPlayer*> (this));
+        g_signal_connect (G_OBJECT (bus), "message::state-changed", (GCallback) handle_bus_state_changed, const_cast<MediaPlayer*> (this));
         gst_object_unref (bus);
 
         g_signal_connect (pipeline, "source-setup", G_CALLBACK (handle_source_setup), const_cast<MediaPlayer*> (this));
@@ -238,6 +244,31 @@ void MediaPlayer::handle_bus_snapshot(GstBus *,  GstMessage *message, MediaPlaye
     self->requestSample(self->m_snapshot_format);
 }
 
+void MediaPlayer::handle_bus_state_changed(GstBus *,  GstMessage *message, MediaPlayer *self)
+{
+    GstState old_state, new_state, pending_state;
+    gst_message_parse_state_changed (message, &old_state, &new_state, &pending_state);
+
+    // Only pay attention to messages coming from the pipeline, not its children
+    if (GST_MESSAGE_SRC (message) == GST_OBJECT (self->msp_pipeline.get())) {
+        gchar *str = g_strdup_printf("State changed to %s from %s, pending %s target_state %s",
+                                     gst_element_state_get_name(new_state),
+                                     gst_element_state_get_name(old_state),
+                                     gst_element_state_get_name(pending_state),
+                                     gst_element_state_get_name(self->m_target_state));
+        LOGD("%s", str);
+        g_free (str);
+       // These hacks used for gstreamer 1.6 only
+       // Source produces errors for some reason after paused state, so I decided to
+       // set NULL state, READY and PLAY after PAUSE
+
+       if (self->m_target_state == GST_STATE_PLAYING && new_state == GST_STATE_READY && old_state == GST_STATE_NULL) {
+           LOGD("Trying play ...");
+           gst_element_set_state(self->msp_pipeline.get(), GST_STATE_PLAYING);
+       }
+     }
+}
+
 void MediaPlayer::handle_source_setup(GstElement *, GstElement *src, MediaPlayer *self)
 {
     if (self->m_tcp_timeout > 0)
@@ -256,8 +287,6 @@ void MediaPlayer::handle_video_changed(GstElement *playbin,  MediaPlayer *self)
 
     if (self->m_target_state == GST_STATE_PLAYING)
         self->mfn_stream_sucess_handler();
-
-    self->m_target_state = GST_STATE_NULL;
 }
 
 /* Handle sample conversion */
@@ -320,9 +349,6 @@ GstPadProbeReturn MediaPlayer::handle_video_pad_data(GstPad *pad, GstPadProbeInf
     GstMessage *message = gst_message_new_application(GST_OBJECT(self->msp_pipeline.get()),
                                                       gst_structure_new("snapshot", NULL));
     gst_element_post_message(self->msp_pipeline.get(), message);
-    /*GstBus *bus = gst_element_get_bus (self->msp_pipeline.get());
-    gst_bus_post(bus, message);
-    gst_object_unref(bus);*/
     return GST_PAD_PROBE_REMOVE;
 }
 
