@@ -1,10 +1,15 @@
 #include "mediaplayer.h"
 #include <string>
 #include <algorithm>
+#include <sys/time.h>   /* for setitimer */
+#include <unistd.h>		/* for pause */
+#include <signal.h>		/* for signal */
 #include <gst/video/video.h>
 #include <pthread.h>
 #include "debug.h"
 #include "eventloop.h"
+
+#define NO_PAD_PROBE -1
 
 using namespace evercam;
 
@@ -12,7 +17,8 @@ MediaPlayer::MediaPlayer(const EventLoop &loop)
     : m_tcp_timeout(0), m_target_state(GST_STATE_NULL)
     , m_sample_failed_handler(0)
     , m_sample_ready_handler(0),
-      m_window(0), m_initialized(false)
+      m_window(0), m_initialized(false),
+      m_video_pad_probeId(NO_PAD_PROBE)
 {
     LOGD("MediaPlayer::MediaPlayer()");
     initialize(loop);
@@ -43,7 +49,7 @@ void MediaPlayer::pause()
     g_object_get(msp_pipeline.get(), "sample", &sample, NULL);
 
     if (sample)
-        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_object_unref);
+        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
 
     gst_element_set_state(msp_pipeline.get(), m_target_state);
 }
@@ -54,69 +60,15 @@ void MediaPlayer::stop()
     gst_element_set_state(msp_pipeline.get(), m_target_state);
 }
 
-/* Handle sample conversion */
-void MediaPlayer::process_converted_sample(GstSample *sample, GError *err, ConvertSampleContext *data)
-{
-    gst_caps_unref(data->caps);
-
-    if (err == NULL) {
-        if (sample != NULL) {
-            GstBuffer *buf = gst_sample_get_buffer(sample);
-            GstMapInfo info;
-            gst_buffer_map (buf, &info, GST_MAP_READ);
-            data->player->m_sample_ready_handler(info.data, info.size);
-            gst_buffer_unmap (buf, &info);
-        }
-    }
-    else {
-        LOGD("Conversion error %s", err->message);
-        g_error_free(err);
-        data->player->m_sample_failed_handler();
-    }
-
-    if (sample != NULL)
-        gst_sample_unref(sample);
-
-    //FIXME: last sample?
-    if (data->player->msp_last_sample.get() != data->sample)
-        gst_sample_unref(data->sample);
-
-    gst_caps_unref(data->caps);
-}
-
-/* Sample pthread function */
-void *MediaPlayer::convert_thread_func(void *arg)
-{
-    ConvertSampleContext *data = (ConvertSampleContext*) arg;
-    GError *err = NULL;
-
-    if (data->caps != NULL && data->sample != NULL) {
-        GstSample *sample = gst_video_convert_sample(data->sample, data->caps, GST_CLOCK_TIME_NONE, &err);
-        process_converted_sample(sample, err, data);
-        g_free(data);
-    }
-
-    return NULL;
-}
-
-/* Asynchronous function for converting frame */
-void MediaPlayer::convert_sample(ConvertSampleContext *ctx)
-{
-    pthread_t thread;
-
-    if (pthread_create(&thread, NULL, convert_thread_func, ctx) != 0)
-        LOGE("Strange, but can't create sample conversion thread");
-}
-
 void MediaPlayer::requestSample(const std::string &fmt)
 {
     if (!msp_pipeline)
         return;
 
-    std::string format(fmt);
-    std::transform(format.begin(), format.end(), format.begin(), ::tolower);
-    if (format != "png"  && format != "jpeg") {
-        LOGE("Unsupported image format %s", format.c_str());
+    m_snapshot_format = fmt;
+    std::transform(m_snapshot_format.begin(), m_snapshot_format.end(), m_snapshot_format.begin(), ::tolower);
+    if (m_snapshot_format != "png"  && m_snapshot_format != "jpeg") {
+        LOGE("Unsupported image format %s", m_snapshot_format.c_str());
         return;
     }
 
@@ -124,13 +76,15 @@ void MediaPlayer::requestSample(const std::string &fmt)
 
     if (msp_last_sample)
         sample = msp_last_sample.get();
-    else
-        g_object_get(msp_pipeline.get(), "sample", &sample, NULL);
+    else {
+        installVideoPadProbe();
+        return;
+    }
 
     if (sample) {
         ConvertSampleContext *ctx = reinterpret_cast<ConvertSampleContext *> (g_malloc(sizeof(ConvertSampleContext)));
         memset(ctx, 0, sizeof(ConvertSampleContext));
-        gchar *img_fmt = g_strdup_printf("image/%s", format.c_str());
+        gchar *img_fmt = g_strdup_printf("image/%s", m_snapshot_format.c_str());
         LOGD("img fmt == %s", img_fmt);
         ctx->caps = gst_caps_new_simple (img_fmt, NULL);
         g_free(img_fmt);
@@ -300,4 +254,81 @@ void MediaPlayer::handle_video_changed(GstElement *playbin,  MediaPlayer *self)
         self->mfn_stream_sucess_handler();
 
     self->m_target_state = GST_STATE_NULL;
+}
+
+/* Handle sample conversion */
+void MediaPlayer::process_converted_sample(GstSample *sample, GError *err, ConvertSampleContext *data)
+{
+    gst_caps_unref(data->caps);
+
+    if (err == NULL) {
+        if (sample != NULL) {
+            GstBuffer *buf = gst_sample_get_buffer(sample);
+            GstMapInfo info;
+            gst_buffer_map (buf, &info, GST_MAP_READ);
+            data->player->m_sample_ready_handler(info.data, info.size);
+            gst_buffer_unmap (buf, &info);
+        }
+    }
+    else {
+        LOGD("Conversion error %s", err->message);
+        g_error_free(err);
+        data->player->m_sample_failed_handler();
+    }
+
+    gst_caps_unref(data->caps);
+}
+
+/* Sample pthread function */
+void *MediaPlayer::convert_thread_func(void *arg)
+{
+    ConvertSampleContext *data = (ConvertSampleContext*) arg;
+    GError *err = NULL;
+
+    if (data->caps != NULL && data->sample != NULL) {
+        GstSample *sample = gst_video_convert_sample(data->sample, data->caps, GST_CLOCK_TIME_NONE, &err);
+        process_converted_sample(sample, err, data);
+        g_free(data);
+    }
+
+    return NULL;
+}
+
+/* Asynchronous function for converting frame */
+void MediaPlayer::convert_sample(ConvertSampleContext *ctx)
+{
+    pthread_t thread;
+
+    if (pthread_create(&thread, NULL, convert_thread_func, ctx) != 0)
+        LOGE("Strange, but can't create sample conversion thread");
+}
+
+GstPadProbeReturn MediaPlayer::handle_video_pad_data(GstPad *pad, GstPadProbeInfo *info, MediaPlayer *self)
+{
+    self->m_video_pad_probeId = NO_PAD_PROBE;
+    GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (info);
+    GstCaps *caps = gst_pad_get_current_caps(pad);
+    GstSample *sample = gst_sample_new(buffer, caps, NULL, NULL);
+    self->msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
+    gst_caps_unref(caps);
+    return GST_PAD_PROBE_REMOVE;
+}
+
+void MediaPlayer::installVideoPadProbe()
+{
+    if (m_video_pad_probeId == NO_PAD_PROBE) {
+        GstPad *pad = NULL;
+        g_signal_emit_by_name(msp_pipeline.get(), "get-video-pad", 0, &pad, NULL);
+
+        if (pad) {
+            LOGD("Pad caps %s", gst_caps_to_string(gst_pad_get_current_caps(pad)));
+            m_video_pad_probeId = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER , (GstPadProbeCallback) handle_video_pad_data,
+                                                     const_cast<MediaPlayer*> (this), NULL);
+            gst_object_unref(pad);
+        } else {
+            LOGE("Can't get pad");
+        }
+    } else {
+        LOGD("We already have pad probe");
+    }
 }

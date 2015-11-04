@@ -8,6 +8,8 @@
 #include <string>
 #include <android/native_window.h>
 
+#define EVERCAM_SNAPSHOT_VIA_PAD_PROBE
+
 namespace evercam {
 
 class EventLoop;
@@ -51,6 +53,8 @@ private:
     static void process_converted_sample(GstSample *sample, GError *err, ConvertSampleContext *data);
     static void *convert_thread_func(void *arg);
     static void convert_sample(ConvertSampleContext *ctx);
+    static GstPadProbeReturn handle_video_pad_data(GstPad *pad, GstPadProbeInfo *info, MediaPlayer *self);
+    void installVideoPadProbe();
 
     int m_tcp_timeout;
     std::shared_ptr<GstElement> msp_pipeline;
@@ -63,6 +67,8 @@ private:
     StreamFailedHandler mfn_stream_failed_handler;
     ANativeWindow *m_window;
     bool m_initialized;
+    gulong m_video_pad_probeId;
+    std::string m_snapshot_format;
 };
 
 } // evercam
