@@ -31,7 +31,7 @@ void MediaPlayer::play()
 {
     GstState currentTarget = m_target_state;
     m_target_state = GST_STATE_PLAYING;
-    msp_last_sample.reset();
+    m_video_pad_probeId = NO_PAD_PROBE;
 
     if (currentTarget == GST_STATE_PAUSED) {
         // Don't do this since it doesn't work with gstreamer 1.6.1
@@ -74,14 +74,10 @@ void MediaPlayer::requestSample(const std::string &fmt)
         return;
     }
 
-    GstSample *sample;
+    GstSample *sample = NULL;
 
     if (msp_last_sample)
         sample = msp_last_sample.get();
-    else {
-        installVideoPadProbe();
-        return;
-    }
 
     if (sample) {
         ConvertSampleContext *ctx = reinterpret_cast<ConvertSampleContext *> (g_malloc(sizeof(ConvertSampleContext)));
@@ -258,15 +254,19 @@ void MediaPlayer::handle_bus_state_changed(GstBus *,  GstMessage *message, Media
                                      gst_element_state_get_name(self->m_target_state));
         LOGD("%s", str);
         g_free (str);
-       // These hacks used for gstreamer 1.6 only
-       // Source produces errors for some reason after paused state, so I decided to
-       // set NULL state, READY and PLAY after PAUSE
+        // These hacks used for gstreamer 1.6 only
+        // Source produces errors for some reason after paused state, so I decided to
+        // set NULL state, READY and PLAY after PAUSE
 
-       if (self->m_target_state == GST_STATE_PLAYING && new_state == GST_STATE_READY && old_state == GST_STATE_NULL) {
-           LOGD("Trying play ...");
-           gst_element_set_state(self->msp_pipeline.get(), GST_STATE_PLAYING);
-       }
-     }
+        if (self->m_target_state == GST_STATE_PLAYING && new_state == GST_STATE_READY && old_state == GST_STATE_NULL) {
+            LOGD("Trying play ...");
+            gst_element_set_state(self->msp_pipeline.get(), GST_STATE_PLAYING);
+        }
+        // Install pad probe
+        if (self->m_target_state == GST_STATE_PLAYING) {
+            self->installVideoPadProbe();
+        }
+    }
 }
 
 void MediaPlayer::handle_source_setup(GstElement *, GstElement *src, MediaPlayer *self)
@@ -302,7 +302,6 @@ void MediaPlayer::process_converted_sample(GstSample *sample, GError *err, Conve
             data->player->m_sample_ready_handler(info.data, info.size);
             gst_buffer_unmap (buf, &info);
             gst_sample_unref(sample);
-            data->player->msp_last_sample.reset();
         }
     }
     else {
@@ -340,33 +339,33 @@ void MediaPlayer::convert_sample(ConvertSampleContext *ctx)
 
 GstPadProbeReturn MediaPlayer::handle_video_pad_data(GstPad *pad, GstPadProbeInfo *info, MediaPlayer *self)
 {
-    self->m_video_pad_probeId = NO_PAD_PROBE;
-    GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (info);
-    GstCaps *caps = gst_pad_get_current_caps(pad);
-    GstSample *sample = gst_sample_new(buffer, caps, NULL, NULL);
-    self->msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
-    gst_caps_unref(caps);
-    GstMessage *message = gst_message_new_application(GST_OBJECT(self->msp_pipeline.get()),
-                                                      gst_structure_new("snapshot", NULL));
-    gst_element_post_message(self->msp_pipeline.get(), message);
-    return GST_PAD_PROBE_REMOVE;
+    if (self->m_target_state == GST_STATE_PLAYING) {
+        GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER (info);
+        GstCaps *caps = gst_pad_get_current_caps(pad);
+        GstSample *sample = gst_sample_new(buffer, caps, NULL, NULL);
+        self->msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
+        gst_caps_unref(caps);
+    }
+    return GST_PAD_PROBE_OK;
 }
 
-void MediaPlayer::installVideoPadProbe()
+bool MediaPlayer::installVideoPadProbe()
 {
     if (m_video_pad_probeId == NO_PAD_PROBE) {
         GstPad *pad = NULL;
         g_signal_emit_by_name(msp_pipeline.get(), "get-video-pad", 0, &pad, NULL);
 
         if (pad) {
-            LOGD("Pad caps %s", gst_caps_to_string(gst_pad_get_current_caps(pad)));
+            LOGD("Snapshot: Pad caps %s", gst_caps_to_string(gst_pad_get_current_caps(pad)));
             m_video_pad_probeId = gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER , (GstPadProbeCallback) handle_video_pad_data,
                                                      const_cast<MediaPlayer*> (this), NULL);
             gst_object_unref(pad);
         } else {
-            LOGE("Can't get pad");
+            LOGE("Snapshot: Can't get pad");
+            return false;
         }
     } else {
-        LOGD("We already have pad probe");
+        LOGD("Snapshot: We already have pad probe");
     }
+    return true;
 }

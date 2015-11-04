@@ -54,7 +54,7 @@ private:
     static void *convert_thread_func(void *arg);
     static void convert_sample(ConvertSampleContext *ctx);
     static GstPadProbeReturn handle_video_pad_data(GstPad *pad, GstPadProbeInfo *info, MediaPlayer *self);
-    void installVideoPadProbe();
+    bool installVideoPadProbe();
 
     int m_tcp_timeout;
     std::shared_ptr<GstElement> msp_pipeline;
