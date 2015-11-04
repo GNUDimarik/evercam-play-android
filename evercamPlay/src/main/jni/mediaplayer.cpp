@@ -47,12 +47,13 @@ void MediaPlayer::pause()
 {
     m_target_state = GST_STATE_PAUSED;
     // Don't do this since it doesn't work with gstreamer 1.6.1
-    /*GstSample *sample;
+#if 0
+    GstSample *sample;
     g_object_get(msp_pipeline.get(), "sample", &sample, NULL);
 
     if (sample)
-        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);*/
-
+        msp_last_sample = std::shared_ptr<GstSample>(sample, gst_sample_unref);
+#endif
     gst_element_set_state(msp_pipeline.get(), m_target_state);
 }
 
@@ -205,7 +206,9 @@ void MediaPlayer::initialize(const EventLoop& loop) throw (std::runtime_error)
         LOGD("res %d ctx %p pipeline %p", res, loop.msp_main_ctx.get(), pipeline);
         g_source_unref (bus_source);
         g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) handle_bus_error, const_cast<MediaPlayer*> (this));
+#if 0
         g_signal_connect (G_OBJECT (bus), "message::application", (GCallback) handle_bus_snapshot, const_cast<MediaPlayer*> (this));
+#endif
         g_signal_connect (G_OBJECT (bus), "message::state-changed", (GCallback) handle_bus_state_changed, const_cast<MediaPlayer*> (this));
         gst_object_unref (bus);
 
@@ -234,11 +237,13 @@ void MediaPlayer::handle_bus_error(GstBus *, GstMessage *message, MediaPlayer *s
     self->m_target_state == GST_STATE_NULL;
 }
 
+#if 0
 void MediaPlayer::handle_bus_snapshot(GstBus *,  GstMessage *message, MediaPlayer *self)
 {
     LOGD("Snapshot event");
     self->requestSample(self->m_snapshot_format);
 }
+#endif
 
 void MediaPlayer::handle_bus_state_changed(GstBus *,  GstMessage *message, MediaPlayer *self)
 {
