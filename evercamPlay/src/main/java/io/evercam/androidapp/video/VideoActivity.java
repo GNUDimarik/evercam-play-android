@@ -89,7 +89,7 @@ import io.evercam.androidapp.utils.PrefsManager;
 import io.evercam.androidapp.utils.PropertyReader;
 import io.keen.client.java.KeenClient;
 
-public class VideoActivity extends ParentAppCompatActivity implements SurfaceHolder.Callback
+public class VideoActivity extends ParentAppCompatActivity
 {
     public static EvercamCamera evercamCamera;
 
@@ -102,8 +102,13 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
     /**
      * UI elements
      */
-    private SurfaceView surfaceView;
-    private SurfaceHolder surfaceHolder;
+    private SurfaceView surfaceView1;
+    private SurfaceHolder surfaceHolder1;
+    private SurfaceView surfaceView2;
+    private SurfaceHolder surfaceHolder2;
+    private SurfaceView surfaceView3;
+    private SurfaceHolder surfaceHolder3;
+
     private ProgressView progressView = null;
     private TextView offlineTextView;
     private TextView timeCountTextView;
@@ -175,26 +180,30 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
      */
     private long native_app_data;
 
-    private native void nativeRequestSample(String format); // supported values are png and jpeg
-    private native void nativeSetUri(String uri, int connectionTimeout);
-    private native void nativeInit();     // Initialize native code, build pipeline, etc
-    private native void nativeFinalize(); // Destroy pipeline and shutdown native code
-    private native void nativePlay();     // Set pipeline to PLAYING
-    private native void nativePause();    // Set pipeline to PAUSED
-    private static native boolean nativeClassInit(); // Initialize native class: cache Method IDs for callbacks
-    private native void nativeSurfaceInit(Object surface);
-    private native void nativeSurfaceFinalize();
-    private native void nativeExpose();
-    private long native_custom_data;      // Native code will use this to keep private data
+//    private native void nativeRequestSample(String format); // supported values are png and jpeg
+//    private native void nativeSetUri(String uri, int connectionTimeout);
+//    private native void nativeInit();     // Initialize native code, build pipeline, etc
+//    private native void nativeFinalize(); // Destroy pipeline and shutdown native code
+//    private native void nativePlay();     // Set pipeline to PLAYING
+//    private native void nativePause();    // Set pipeline to PAUSED
+//    private static native boolean nativeClassInit(); // Initialize native class: cache Method IDs for callbacks
+//    private native void nativeSurfaceInit(Object surface);
+//    private native void nativeSurfaceFinalize();
+//    private native void nativeExpose();
+//    private long native_custom_data;      // Native code will use this to keep private data
 
     private final int TCP_TIMEOUT = 10 * 1000000; // 10 seconds in micro seconds
 
-    static
-    {
-        System.loadLibrary("gstreamer_android");
-        System.loadLibrary("evercam");
-        nativeClassInit();
-    }
+//    static
+//    {
+//        System.loadLibrary("gstreamer_android");
+//        System.loadLibrary("evercam");
+//        nativeClassInit();
+//    }
+
+    private MediaPlayer mediaPlayer1 = null;
+    private MediaPlayer mediaPlayer2 = null;
+    private MediaPlayer mediaPlayer3 = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -222,17 +231,17 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
             /**
              * Init Gstreamer
              */
-            try
-            {
-                GStreamer.init(this);
-            } catch (Exception e)
-            {
-                Log.e(TAG, e.getLocalizedMessage());
-                EvercamPlayApplication.sendCaughtException(this, e);
-                finish();
-                return;
-            }
-            nativeInit();
+//            try
+//            {
+//                GStreamer.init(this);
+//            } catch (Exception e)
+//            {
+//                Log.e(TAG, e.getLocalizedMessage());
+//                EvercamPlayApplication.sendCaughtException(this, e);
+//                finish();
+//                return;
+//            }
+//            nativeInit();
 
             setContentView(R.layout.video_activity_layout);
 
@@ -241,6 +250,13 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
             setSupportActionBar(mToolbar);
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
             mCameraListSpinner = (Spinner) findViewById(R.id.spinner_camera_list);
+
+            final GStreamerSurfaceView gstreamerSurfaceView1 = (GStreamerSurfaceView) this.findViewById(R.id.surface_view1);
+            final GStreamerSurfaceView gstreamerSurfaceView2 = (GStreamerSurfaceView) this.findViewById(R.id.surface_view2);
+            final GStreamerSurfaceView gstreamerSurfaceView3 = (GStreamerSurfaceView) this.findViewById(R.id.surface_view3);
+            mediaPlayer1 = new MediaPlayer(this, gstreamerSurfaceView1);
+            mediaPlayer2 = new MediaPlayer(this, gstreamerSurfaceView2);
+            mediaPlayer3 = new MediaPlayer(this, gstreamerSurfaceView3);
 
             initialPageElements();
 
@@ -403,7 +419,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
     @Override
     protected void onDestroy()
     {
-        nativeFinalize();
+//        nativeFinalize();
         super.onDestroy();
     }
 
@@ -747,7 +763,9 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
             paused = false;
             end = false;
 
-            surfaceView.setVisibility(View.GONE);
+            surfaceView1.setVisibility(View.GONE);
+            surfaceView2.setVisibility(View.GONE);
+            surfaceView3.setVisibility(View.GONE);
             imageView.setVisibility(View.VISIBLE);
             showProgressView();
 
@@ -824,7 +842,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
                 else
                 {
                     playPauseImageView.setVisibility(View.VISIBLE);
-                    if(surfaceView.getVisibility() != View.VISIBLE)
+                    if(surfaceView1.getVisibility() != View.VISIBLE)
                     {
                         snapshotMenuView.setVisibility(View.VISIBLE);
                     }
@@ -850,36 +868,6 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
 
     /**
      * **********
-     * Surface
-     * ***********
-     */
-
-    @Override
-    public void surfaceCreated(SurfaceHolder surfaceHolder)
-    {
-        Log.d("GStreamer", "Surface created: " + surfaceHolder.getSurface());
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder surfaceholder, int format, int width, int height)
-    {
-        Log.d("GStreamer", "Surface changed to format " + format + " width " + width + " height "
-                + height);
-        onMediaSizeChanged(width, height);
-
-        nativeSurfaceInit(surfaceholder.getSurface());
-        nativeExpose();
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder surfaceholder)
-    {
-        Log.d("GStreamer", "Surface destroyed");
-        nativeSurfaceFinalize();
-    }
-
-    /**
-     * **********
      * Player
      * ***********
      */
@@ -898,7 +886,10 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         if(camera.hasRtspUrl())
         {
             Log.e(TAG, "uri " + createUri(camera));
-            nativeSetUri(createUri(camera), TCP_TIMEOUT);
+            mediaPlayer1.setUri(createUri(camera), TCP_TIMEOUT);
+            mediaPlayer2.setUri("rtsp://admin:mehcam@89.101.245.146:9100/h264/ch1/main/av_stream", TCP_TIMEOUT);
+            mediaPlayer3.setUri("rtsp://admin:hikteam@149.5.36.19:9202/h264/ch1/main/av_stream", TCP_TIMEOUT);
+//            nativeSetUri(createUri(camera), TCP_TIMEOUT);
             play();
         }
         else
@@ -911,22 +902,32 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
 
     private void play()
     {
-        nativePlay();
+        mediaPlayer1.play();
+        mediaPlayer2.play();
+        mediaPlayer3.play();
+//        nativePlay();
     }
 
-    private void releasePlayer()
-    {
-        nativePause();
+    private void releasePlayer() {
+        mediaPlayer1.pause();
+        mediaPlayer2.pause();
+        mediaPlayer3.pause();
+//        nativePause();
     }
 
     private void restartPlay()
     {
-        nativePlay();
+        mediaPlayer1.play();
+        mediaPlayer2.play();
+        mediaPlayer3.play();
+//        nativePlay();
     }
 
-    private void pausePlayer()
-    {
-        nativePause();
+    private void pausePlayer() {
+        mediaPlayer1.pause();
+        mediaPlayer2.pause();
+        mediaPlayer3.pause();
+//        nativePause();
     }
 
     // when screen gets rotated
@@ -1032,9 +1033,17 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         snapshotMenuView = (ImageView) this.findViewById(R.id.player_savesnapshot);
         ptzSwitchImageView = (ImageView) findViewById(R.id.player_ptz_switch);
 
-        surfaceView = (SurfaceView) findViewById(R.id.surface_view);
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
+        surfaceView1 = (SurfaceView) findViewById(R.id.surface_view1);
+        surfaceHolder1 = surfaceView1.getHolder();
+        surfaceHolder1.addCallback(mediaPlayer1);
+
+        surfaceView2 = (SurfaceView) findViewById(R.id.surface_view2);
+        surfaceHolder2 = surfaceView2.getHolder();
+        surfaceHolder2.addCallback(mediaPlayer2);
+
+        surfaceView3 = (SurfaceView) findViewById(R.id.surface_view3);
+        surfaceHolder3 = surfaceView3.getHolder();
+        surfaceHolder3.addCallback(mediaPlayer3);
 
         progressView = ((ProgressView) imageViewLayout.findViewById(R.id.live_progress_view));
 
@@ -1279,9 +1288,9 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
 
                     processSnapshot(bitmap, FileType.JPG);
                 }
-                else if(surfaceView.getVisibility() == View.VISIBLE)
-                {
-                    nativeRequestSample("jpeg");
+                else if(surfaceView1.getVisibility() == View.VISIBLE) {
+                    mediaPlayer1.requestSample("jpeg");
+//                    nativeRequestSample("jpeg");
                 }
             }
         });
@@ -1384,7 +1393,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
     }
 
     // Handle stream loaded
-    private void onVideoLoaded()
+    public void onVideoLoaded()
     {
         Log.d(TAG, "onVideoLoaded()");
         runOnUiThread(new Runnable()
@@ -1394,7 +1403,9 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
                 //View gets played, show time count, and start buffering
                 isPlayingJpg = false;
                 hideProgressView();
-                surfaceView.setVisibility(View.VISIBLE);
+                surfaceView1.setVisibility(View.VISIBLE);
+                surfaceView2.setVisibility(View.VISIBLE);
+                surfaceView3.setVisibility(View.VISIBLE);
                 imageView.setVisibility(View.GONE);
                 startTimeCounter();
 
@@ -1425,7 +1436,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         });
     }
     // Handle stream loading failed
-    private void onVideoLoadFailed()
+    public void onVideoLoadFailed()
     {
         Log.d(TAG, "onVideoLoadFailed()");
         runOnUiThread(new Runnable()
@@ -1455,7 +1466,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         });
     }
 
-    private void onSampleRequestSuccess(byte[] data, int size)
+    public void onSampleRequestSuccess(byte[] data, int size)
     {
         final byte [] imageData = data;
         final int imageSize = size;
@@ -1468,7 +1479,7 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         });
     }
 
-    private void onSampleRequestFailed()
+    public void onSampleRequestFailed()
     {
         runOnUiThread(new Runnable() {
             public void run() {
@@ -1820,7 +1831,9 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
                     progressView.setVisibility(View.GONE);
 
                     // Hide video elements if switch to an offline camera.
-                    surfaceView.setVisibility(View.GONE);
+                    surfaceView1.setVisibility(View.GONE);
+                    surfaceView2.setVisibility(View.GONE);
+                    surfaceView3.setVisibility(View.GONE);
                     imageView.setVisibility(View.GONE);
                 }
                 else
@@ -1847,9 +1860,9 @@ public class VideoActivity extends ParentAppCompatActivity implements SurfaceHol
         mCameraListSpinner.setSelection(defaultCameraIndex);
     }
 
-    private void onMediaSizeChanged (int width, int height) {
+    public void onMediaSizeChanged (int width, int height) {
         Log.i("GStreamer", "Media size changed to " + width + "x" + height);
-        final GStreamerSurfaceView gstreamerSurfaceView = (GStreamerSurfaceView) this.findViewById(R.id.surface_view);
+        final GStreamerSurfaceView gstreamerSurfaceView = (GStreamerSurfaceView) this.findViewById(R.id.surface_view1);
         gstreamerSurfaceView.media_width = width;
         gstreamerSurfaceView.media_height = height;
         runOnUiThread(new Runnable()

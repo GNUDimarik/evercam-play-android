@@ -319,7 +319,8 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         __android_log_print (ANDROID_LOG_ERROR, "evercam", "Could not retrieve JNIEnv");
         return 0;
     }
-    jclass klass = env->FindClass ("io/evercam/androidapp/video/VideoActivity");
+    // jclass klass = env->FindClass ("io/evercam/androidapp/video/VideoActivity");
+    jclass klass = env->FindClass ("io/evercam/androidapp/video/MediaPlayer");
     env->RegisterNatives (klass, native_methods, G_N_ELEMENTS(native_methods));
 
     pthread_key_create (&current_jni_env, detach_current_thread);
